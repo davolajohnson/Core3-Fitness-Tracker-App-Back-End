@@ -1,16 +1,19 @@
+// middleware/verify-token.js
 const jwt = require('jsonwebtoken');
 
-function verifyToken(req, res, next) {
+function requireAuth(req, res, next) {
   try {
-    const token = req.headers.authorization.split(' ')[1];
+    const auth = req.headers.authorization || '';
+    const [, token] = auth.split(' ');
+    if (!token) return res.status(401).json({ err: 'No token provided' });
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    req.user = decoded.payload;
-    
+    req.user = decoded.payload; // {_id, username}
     next();
   } catch (err) {
-    res.status(401).json({ err: 'Invalid token.' });
+    res.status(401).json({ err: 'Invalid or expired token' });
   }
 }
 
-module.exports = verifyToken;
+module.exports = requireAuth;
+

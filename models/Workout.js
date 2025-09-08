@@ -1,15 +1,12 @@
-const mongoose = require('mongoose')
-const { Schema } = mongoose
+const mongoose = require('mongoose');
 
-const workoutSchema = new Schema(
+const workoutSchema = new mongoose.Schema(
   {
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    date: { type: Date, required: true },
-    notes: { type: String, default: '' },
-    // optional stretch fields you sketched; safe to leave for later
-    duration: { type: Number }, // minutes
+    name: { type: String, required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
-)
+);
 
-module.exports = mongoose.model('Workout', workoutSchema)
+module.exports = mongoose.model('Workout', workoutSchema);
+
