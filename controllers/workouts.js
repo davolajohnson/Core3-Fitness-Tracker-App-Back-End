@@ -15,16 +15,34 @@ router.get('/', async (req, res) => {
 
 // POST /workouts
 router.post('/', async (req, res) => {
-  const { date, notes, duration } = req.body
+  const { date, notes, duration, exercises } = req.body
   if (!date) return res.status(400).json({ error: 'date is required' })
   const created = await Workout.create({
     user: req.user._id,
     date,
     notes: notes ?? '',
-    duration
+    duration, 
+    exercises
   })
-  res.status(201).json(created)
-})
+  const createdExercises = await Promise.all(
+    exercises.map(async (ex) => {
+      return Exercise.create({
+        workout: created._id,
+        name: ex.name,
+        sets: ex.sets || 0,
+        reps: ex.reps || 0,
+        weight: ex.weight || 0,
+        type: ex.type || "strength",
+      });
+    })
+  );
+ 
+  
+  res.status(201).json({
+    ...created.toObject(),
+    exercises: createdExercises,
+  });
+});
 
 // helper: owner
 async function ensureOwner(workoutId, userId) {
