@@ -3,7 +3,7 @@ const express = require('express');
 const { isValidObjectId } = require('mongoose');
 const router = express.Router();
 const requireAuth = require('../middleware/verify-token');
-const Workout = require('../models/workout'); // NOTE: lowercase filename
+const Workout = require('../models/Workout'); // NOTE: lowercase filename
 
 router.use(requireAuth);
 
@@ -44,6 +44,9 @@ router.post('/', async (req, res) => {
     const doc = await Workout.create({
       name: req.body.name,
       notes: req.body.notes || '',
+      date: req.body.date,            
+      duration: req.body.duration,    
+      exercises: req.body.exercises,  
       user: req.user._id,
     });
     res.status(201).json(doc);
@@ -75,14 +78,13 @@ router.put('/:id', async (req, res) => {
 // DELETE /workouts/:id — delete if I own it
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    if (!assertValidId(id)) return res.status(400).json({ err: 'Invalid id' });
+    const workout = await Workout.findOne({ _id: req.params.id, user: req.user._id });
+    if (!workout) return res.status(404).json({ err: 'Workout not found' });
 
-    const gone = await Workout.findOneAndDelete({ _id: id, user: req.user._id });
-    if (!gone) return res.status(404).json({ err: 'Not found' });
+    await workout.deleteOne();
     res.sendStatus(204);
   } catch (err) {
-    console.error(`DELETE /workouts/${req.params.id} error:`, err);
+    console.error('DELETE /workouts error:', err);
     res.status(500).json({ err: 'Server error' });
   }
 });
