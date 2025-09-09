@@ -1,17 +1,16 @@
-const express = require('express')
-const router = express.Router()
-const Workout = require('../models/Workout')
-const Exercise = require('../models/Exercise')
-const Set = require('../models/Set')
-const verifyToken = require('../middleware/verify-token')
+const express = require('express');
+const router = express.Router();
+const requireAuth = require('../middleware/verify-token');
+const Workout = require('../models/Workout');
 
-router.use(verifyToken)
+// Require auth for all workout routes (you can move the GET / public if you want)
+router.use(requireAuth);
 
-// GET /workouts 
+// GET /workouts (only my workouts)
 router.get('/', async (req, res) => {
-  const items = await Workout.find({ user: req.user._id }).sort({ date: -1 })
-  res.json(items)
-})
+  const items = await Workout.find({ user: req.user._id }).sort({ createdAt: -1 });
+  res.json(items);
+});
 
 // POST /workouts
 router.post('/', async (req, res) => {
@@ -54,56 +53,20 @@ async function ensureOwner(workoutId, userId) {
 
 // GET /workouts/:id 
 router.get('/:id', async (req, res) => {
-  const [w, code] = await ensureOwner(req.params.id, req.user._id)
-  if (!w) return res.sendStatus(code)
+  const doc = await Workout.findOne({ _id: req.params.id, user: req.user._id });
+  if (!doc) return res.status(404).json({ err: 'Not found' });
+  res.json(doc);
+});
 
-  const exercises = await Exercise.find({ workout: w._id }).sort({ createdAt: 1 })
-  const exIds = exercises.map(e => e._id)
-  const sets = await Set.find({ exercise: { $in: exIds } }).sort({ createdAt: 1 })
+// POST /workouts (create)
+router.post('/', async (req, res) => {
+  const doc = await Workout.create({
+    name: req.body.name,
+    notes: req.body.notes || '',
+    user: req.user._id,
+  });
+  res.status(201).json(doc);
+});
 
-  const setsByExercise = sets.reduce((m, s) => {
-    const k = String(s.exercise)
-    ;(m[k] = m[k] || []).push(s)
-    return m
-  }, {})
+module.exports = router;
 
-  res.json({
-    _id: w._id,
-    date: w.date,
-    notes: w.notes,
-    duration: w.duration,
-    exercises: exercises.map(e => ({
-      _id: e._id,
-      name: e.name,
-      type: e.type,
-      sets: setsByExercise[String(e._id)] || []
-    }))
-  })
-})
-
-// PUT /workouts/:id — Update
-router.put('/:id', async (req, res) => {
-  const [w, code] = await ensureOwner(req.params.id, req.user._id)
-  if (!w) return res.sendStatus(code)
-  const { date, notes, duration } = req.body
-  if (!date) return res.status(400).json({ error: 'date is required' })
-  w.date = date
-  if (notes !== undefined) w.notes = notes
-  if (duration !== undefined) w.duration = duration
-  await w.save()
-  res.json(w)
-})
-
-// DELETE /workouts/:id 
-router.delete('/:id', async (req, res) => {
-  const [w, code] = await ensureOwner(req.params.id, req.user._id)
-  if (!w) return res.sendStatus(code)
-  const exercises = await Exercise.find({ workout: w._id })
-  const exIds = exercises.map(e => e._id)
-  await Set.deleteMany({ exercise: { $in: exIds } })
-  await Exercise.deleteMany({ workout: w._id })
-  await w.deleteOne()
-  res.sendStatus(204)
-})
-
-module.exports = router
