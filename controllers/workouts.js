@@ -3,43 +3,31 @@ const router = express.Router();
 const requireAuth = require('../middleware/verify-token');
 const Workout = require('../models/Workout');
 
-// Public: anyone can view workouts
+// Require auth for all workout routes (you can move the GET / public if you want)
+router.use(requireAuth);
+
+// GET /workouts (only my workouts)
 router.get('/', async (req, res) => {
-  const items = await Workout.find().sort({ createdAt: -1 });
+  const items = await Workout.find({ user: req.user._id }).sort({ createdAt: -1 });
   res.json(items);
 });
 
-// Everything below requires a valid JWT
-router.use(requireAuth);
+// GET /workouts/:id (only if I own it)
+router.get('/:id', async (req, res) => {
+  const doc = await Workout.findOne({ _id: req.params.id, user: req.user._id });
+  if (!doc) return res.status(404).json({ err: 'Not found' });
+  res.json(doc);
+});
 
-// Create workout (only signed-in users)
+// POST /workouts (create)
 router.post('/', async (req, res) => {
-  const workout = await Workout.create({
-    ...req.body,
-    user: req.user._id, // associate with logged-in user
-  });
-  res.status(201).json(workout);
-});
-
-// Update workout (only owner can update)
-router.put('/:id', async (req, res) => {
-  const updated = await Workout.findOneAndUpdate(
-    { _id: req.params.id, user: req.user._id },
-    req.body,
-    { new: true }
-  );
-  if (!updated) return res.status(403).json({ err: 'Not allowed' });
-  res.json(updated);
-});
-
-// Delete workout (only owner can delete)
-router.delete('/:id', async (req, res) => {
-  const deleted = await Workout.findOneAndDelete({
-    _id: req.params.id,
+  const doc = await Workout.create({
+    name: req.body.name,
+    notes: req.body.notes || '',
     user: req.user._id,
   });
-  if (!deleted) return res.status(403).json({ err: 'Not allowed' });
-  res.json({ ok: true });
+  res.status(201).json(doc);
 });
 
 module.exports = router;
+
