@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const requireAuth = require('../middleware/verify-token');
 const Workout = require('../models/Workout');
+const Exercise = require('../models/Exercise')
 
 // Require auth for all workout routes (you can move the GET / public if you want)
 router.use(requireAuth);
@@ -58,15 +59,13 @@ router.get('/:id', async (req, res) => {
   res.json(doc);
 });
 
-// POST /workouts (create)
-router.post('/', async (req, res) => {
-  const doc = await Workout.create({
-    name: req.body.name,
-    notes: req.body.notes || '',
-    user: req.user._id,
-  });
-  res.status(201).json(doc);
+router.delete('/:id', async (req, res) => {
+  const [w, code] = await ensureOwner(req.params.id, req.user._id);
+  if (!w) return res.sendStatus(code);
+  await w.deleteOne();
+  res.sendStatus(204);
 });
+
 
 module.exports = router;
 
