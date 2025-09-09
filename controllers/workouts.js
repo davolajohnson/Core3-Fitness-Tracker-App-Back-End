@@ -1,71 +1,93 @@
+// controllers/workouts.js
 const express = require('express');
+const { isValidObjectId } = require('mongoose');
 const router = express.Router();
 const requireAuth = require('../middleware/verify-token');
-const Workout = require('../models/Workout');
-const Exercise = require('../models/Exercise')
+const Workout = require('../models/workout'); // NOTE: lowercase filename
 
-// Require auth for all workout routes (you can move the GET / public if you want)
 router.use(requireAuth);
 
-// GET /workouts (only my workouts)
-router.get('/', async (req, res) => {
-  const items = await Workout.find({ user: req.user._id }).sort({ createdAt: -1 });
-  res.json(items);
-});
-
-// POST /workouts
-router.post('/', async (req, res) => {
-  const { date, notes, duration, exercises } = req.body
-  if (!date) return res.status(400).json({ error: 'date is required' })
-  const created = await Workout.create({
-    user: req.user._id,
-    date,
-    notes: notes ?? '',
-    duration, 
-    exercises
-  })
-  const createdExercises = await Promise.all(
-    exercises.map(async (ex) => {
-      return Exercise.create({
-        workout: created._id,
-        name: ex.name,
-        sets: ex.sets || 0,
-        reps: ex.reps || 0,
-        weight: ex.weight || 0,
-        type: ex.type || "strength",
-      });
-    })
-  );
- 
-  
-  res.status(201).json({
-    ...created.toObject(),
-    exercises: createdExercises,
-  });
-});
-
-// helper: owner
-async function ensureOwner(workoutId, userId) {
-  const w = await Workout.findById(workoutId)
-  if (!w) return [null, 404]
-  if (String(w.user) !== String(userId)) return [null, 403]
-  return [w, 200]
+// Helper to validate Mongo ObjectId
+function assertValidId(id) {
+  return isValidObjectId(id);
 }
 
-// GET /workouts/:id 
+// GET /workouts — list my workouts
+router.get('/', async (req, res) => {
+  try {
+    const items = await Workout.find({ user: req.user._id }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (err) {
+    console.error('GET /workouts error:', err);
+    res.status(500).json({ err: 'Server error' });
+  }
+});
+
+// GET /workouts/:id — show if I own it
 router.get('/:id', async (req, res) => {
-  const doc = await Workout.findOne({ _id: req.params.id, user: req.user._id });
-  if (!doc) return res.status(404).json({ err: 'Not found' });
-  res.json(doc);
+  try {
+    const { id } = req.params;
+    if (!assertValidId(id)) return res.status(400).json({ err: 'Invalid id' });
+
+    const doc = await Workout.findOne({ _id: id, user: req.user._id });
+    if (!doc) return res.status(404).json({ err: 'Not found' });
+    res.json(doc);
+  } catch (err) {
+    console.error(`GET /workouts/${req.params.id} error:`, err);
+    res.status(500).json({ err: 'Server error' });
+  }
 });
 
+// POST /workouts — create
+router.post('/', async (req, res) => {
+  try {
+    const doc = await Workout.create({
+      name: req.body.name,
+      notes: req.body.notes || '',
+      user: req.user._id,
+    });
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error('POST /workouts error:', err);
+    res.status(400).json({ err: err.message || 'Bad request' });
+  }
+});
+
+// PUT /workouts/:id — update if I own it
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!assertValidId(id)) return res.status(400).json({ err: 'Invalid id' });
+
+    const doc = await Workout.findOneAndUpdate(
+      { _id: id, user: req.user._id },
+      { name: req.body.name, notes: req.body.notes },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ err: 'Not found' });
+    res.json(doc);
+  } catch (err) {
+    console.error(`PUT /workouts/${req.params.id} error:`, err);
+    res.status(500).json({ err: 'Server error' });
+  }
+});
+
+// DELETE /workouts/:id — delete if I own it
 router.delete('/:id', async (req, res) => {
-  const [w, code] = await ensureOwner(req.params.id, req.user._id);
-  if (!w) return res.sendStatus(code);
-  await w.deleteOne();
-  res.sendStatus(204);
-});
+  try {
+    const { id } = req.params;
+    if (!assertValidId(id)) return res.status(400).json({ err: 'Invalid id' });
 
+    const gone = await Workout.findOneAndDelete({ _id: id, user: req.user._id });
+    if (!gone) return res.status(404).json({ err: 'Not found' });
+    res.sendStatus(204);
+  } catch (err) {
+    console.error(`DELETE /workouts/${req.params.id} error:`, err);
+    res.status(500).json({ err: 'Server error' });
+  }
+});
 
 module.exports = router;
+
+
 
