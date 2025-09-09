@@ -1,22 +1,20 @@
-const mongoose = require('mongoose');
-const { Schema } = mongoose; // <-- add this
+const mongoose = require("mongoose");
 
-const workoutSchema = new Schema(
-  {
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    date: { type: Date, required: true },
-    notes: { type: String, default: '' },
-    duration: { type: Number },
-    exercises: [
-      {
-        name: String,
-        sets: Number,
-        reps: Number,
-        weight: Number,
-      },
-    ],
-  },
-  { timestamps: true }
-);
+const workoutSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  notes: String,
+  date: { type: Date, required: true },
+  duration: Number,
+  exercises: [
+    {
+      name: String,
+      sets: Number,
+      reps: Number,
+      weight: Number,
+    },
+  ],
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+});
 
-module.exports = mongoose.models.Workout || mongoose.model('Workout', workoutSchema);
+// Fix OverwriteModelError:
+module.exports = mongoose.models.Workout || mongoose.model("Workout", workoutSchema);
