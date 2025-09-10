@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 
-const Workout = require('../models/workout');   // <-- lowercase to match file
-const Exercise = require('../models/exercise'); // <-- lowercase to match file
+const Workout = require('../models/Workout');   // <-- lowercase to match file
+const Exercise = require('../models/Exercise'); // <-- lowercase to match file
 const verifyToken = require('../middleware/verify-token');
 
 router.use(verifyToken);
