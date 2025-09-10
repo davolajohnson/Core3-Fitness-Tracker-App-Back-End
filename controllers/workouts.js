@@ -62,9 +62,18 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     if (!assertValidId(id)) return res.status(400).json({ err: 'Invalid id' });
 
+   
+    const updateData = {
+      name: req.body.name,
+      notes: req.body.notes,
+      date: req.body.date,
+      duration: req.body.duration,
+      exercises: req.body.exercises,
+    };
+
     const doc = await Workout.findOneAndUpdate(
       { _id: id, user: req.user._id },
-      { name: req.body.name, notes: req.body.notes },
+      updateData,
       { new: true }
     );
     if (!doc) return res.status(404).json({ err: 'Not found' });
